@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>MovieBox API Tester</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #09090b;
+  color: #fafafa;
+  font-family: system-ui, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.container {
+  width: 100%;
+  max-width: 700px;
+}
+
+h1 {
+  margin-bottom: 5px;
+}
+
+p {
+  color: #a1a1aa;
+}
+
+.card {
+  background: #111113;
+  border: 1px solid #27272a;
+  border-radius: 18px;
+  padding: 18px;
+  margin-top: 20px;
+}
+
+.search {
+  display: flex;
+  gap: 10px;
+}
+
+input {
+  flex: 1;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #3f3f46;
+  background: #18181b;
+  color: white;
+  font-size: 15px;
+  outline: none;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 0 20px;
+  background: white;
+  color: black;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: .5;
+}
+
+#status {
+  margin-top: 15px;
+  color: #a1a1aa;
+}
+
+pre {
+  margin-top: 15px;
+  padding: 15px;
+  background: #09090b;
+  border-radius: 10px;
+  border: 1px solid #27272a;
+  overflow: auto;
+  max-height: 450px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1>🎬 MovieBox Tester</h1>
+
+  <p>
+    Testing moviebox-cli 1.0.3 on Python 3.14
+  </p>
+
+  <div class="card">
+
+    <div class="search">
+      <input
+        id="query"
+        value="Avatar"
+        placeholder="Movie or series..."
+      >
+
+      <button id="btn">
+        Test
+      </button>
+    </div>
+
+    <div id="status">
+      Ready.
+    </div>
+
+    <pre id="output">No request yet.</pre>
+
+  </div>
+
+</div>
+
+<script>
+const query = document.getElementById("query");
+const btn = document.getElementById("btn");
+const status = document.getElementById("status");
+const output = document.getElementById("output");
+
+async function run() {
+  const q = query.value.trim();
+
+  if (!q) return;
+
+  btn.disabled = true;
+  status.textContent = "Testing MovieBox...";
+  output.textContent = "Loading...";
+
+  try {
+    const res = await fetch(
+      "/api/search?q=" + encodeURIComponent(q)
+    );
+
+    const data = await res.json();
+
+    status.textContent =
+      data.success
+        ? "✅ Success"
+        : "❌ Failed";
+
+    output.textContent =
+      JSON.stringify(data, null, 2);
+
+  } catch (err) {
+    status.textContent = "❌ Server error";
+
+    output.textContent =
+      JSON.stringify({
+        error: err.message
+      }, null, 2);
+
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+btn.onclick = run;
+
+query.addEventListener("keydown", e => {
+  if (e.key === "Enter") run();
+});
+</script>
+
+</body>
+</html>
+
