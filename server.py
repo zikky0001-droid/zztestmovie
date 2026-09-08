@@ -5,10 +5,12 @@ import traceback
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 
-from moviebox_api import MovieAuto
+from moviebox_api_v3.v3.constants import SubjectType
+from moviebox_api_v3.v3.core import Search
+from moviebox_api_v3.v3.http_client import MovieBoxHttpClient
 
 
-app = FastAPI(title="MovieBox Test")
+app = FastAPI(title="MovieBox API v3 Test")
 
 BASE_DIR = Path(__file__).parent
 
@@ -23,12 +25,13 @@ async def test():
     return {
         "status": "ok",
         "python": sys.version,
-        "message": "MovieBox API is running"
+        "package": "moviebox-api-v3",
+        "version": "3.0.2"
     }
 
 
 @app.get("/api/search")
-async def search(q: str):
+async def search(q: str, page: int = 1, per_page: int = 10):
 
     if not q.strip():
         return JSONResponse(
@@ -39,52 +42,77 @@ async def search(q: str):
             status_code=400
         )
 
+    if page < 1:
+        page = 1
+
+    if per_page < 1:
+        per_page = 10
+
+    if per_page > 50:
+        per_page = 50
+
+    query = q.strip()
+
+    print("=" * 60, flush=True)
+    print(f"[MovieBox v3] Searching: {query}", flush=True)
+    print(f"[MovieBox v3] Page: {page}", flush=True)
+    print(f"[MovieBox v3] Per page: {per_page}", flush=True)
+    print("=" * 60, flush=True)
+
     try:
-        query = q.strip()
 
-        print("=" * 60, flush=True)
-        print(f"[MovieBox] Searching: {query}", flush=True)
-        print("=" * 60, flush=True)
+        async with MovieBoxHttpClient(timeout=8) as client:
 
-        print("[MovieBox] Creating MovieAuto...", flush=True)
+            print(
+                "[MovieBox v3] HTTP client created",
+                flush=True
+            )
 
-        auto = MovieAuto()
+            api = Search(
+                client_session=client,
+                query=query,
+                subject_type=SubjectType.ALL,
+                page=page,
+                per_page=per_page,
+            )
 
-        print("[MovieBox] MovieAuto created successfully", flush=True)
+            print(
+                "[MovieBox v3] Search object created",
+                flush=True
+            )
 
-        print("[MovieBox] Calling auto.run()...", flush=True)
+            data = await api.get_content()
 
-        result = await auto.run(query)
+            print(
+                "[MovieBox v3] Search request completed",
+                flush=True
+            )
 
-        print("[MovieBox] Search completed successfully", flush=True)
-
-        serialized = serialize(result)
-
-        print("[MovieBox] Result serialized successfully", flush=True)
-
-        return {
-            "success": True,
-            "query": query,
-            "result": serialized
-        }
+            return {
+                "success": True,
+                "query": query,
+                "page": page,
+                "per_page": per_page,
+                "result": serialize(data)
+            }
 
     except Exception as e:
 
         print("=" * 60, flush=True)
-        print("[MovieBox] SEARCH ERROR", flush=True)
+        print("[MovieBox v3] ERROR", flush=True)
         print("=" * 60, flush=True)
 
         print(
-            f"[MovieBox] Error type: {type(e).__name__}",
+            f"Error type: {type(e).__name__}",
             flush=True
         )
 
         print(
-            f"[MovieBox] Error: {str(e)}",
+            f"Error: {str(e)}",
             flush=True
         )
 
-        print("[MovieBox] Full traceback:", flush=True)
+        print("[MovieBox v3] Traceback:", flush=True)
 
         traceback.print_exc()
 
@@ -93,7 +121,7 @@ async def search(q: str):
         return JSONResponse(
             {
                 "success": False,
-                "query": q,
+                "query": query,
                 "error": str(e),
                 "error_type": type(e).__name__
             },
@@ -117,24 +145,17 @@ def serialize(value):
 
     if isinstance(value, dict):
         return {
-            str(key): serialize(val)
-            for key, val in value.items()
+            str(key): serialize(item)
+            for key, item in value.items()
         }
 
     if hasattr(value, "model_dump"):
-        return serialize(
-            value.model_dump()
-        )
+        return serialize(value.model_dump())
 
     if hasattr(value, "dict"):
-        return serialize(
-            value.dict()
-        )
+        return serialize(value.dict())
 
     if hasattr(value, "__dict__"):
-        return serialize(
-            vars(value)
-        )
+        return serialize(vars(value))
 
     return str(value)
-
